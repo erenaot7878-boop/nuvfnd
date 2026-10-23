@@ -1,4 +1,5 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { SlidersHorizontal, X } from 'lucide-react';
 import { Product } from '../types';
 import { ProductCard, ProductCardSkeleton } from '../components/ProductCard';
@@ -38,6 +39,9 @@ export const ShopView: React.FC<ShopViewProps> = ({
   const [sortBy, setSortBy] = useState<'featured' | 'price-asc' | 'price-desc' | 'name-asc'>('featured');
   const [visibleCount, setVisibleCount] = useState<number>(12);
 
+  const filterBtnRef = useRef<HTMLButtonElement>(null);
+  const filterPanelRef = useRef<HTMLDivElement>(null);
+
   // Filter change transition state (fades to 0.4 over 100ms, then fades in over 250ms)
   const [isFilterFading, setIsFilterFading] = useState(false);
   const prevFilterKey = useRef('');
@@ -51,6 +55,31 @@ export const ShopView: React.FC<ShopViewProps> = ({
     }
     prevFilterKey.current = currentFilterKey;
   }, [currentFilterKey]);
+
+  // Lock body & html scroll when filter panel is open
+  useEffect(() => {
+    if (isFilterOpen) {
+      const originalHtmlOverflow = document.documentElement.style.overflow;
+      const originalBodyOverflow = document.body.style.overflow;
+      document.documentElement.style.overflow = 'hidden';
+      document.body.style.overflow = 'hidden';
+      filterPanelRef.current?.focus();
+
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.key === 'Escape') {
+          setIsFilterOpen(false);
+          filterBtnRef.current?.focus();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+
+      return () => {
+        document.documentElement.style.overflow = originalHtmlOverflow;
+        document.body.style.overflow = originalBodyOverflow;
+        window.removeEventListener('keydown', handleKeyDown);
+      };
+    }
+  }, [isFilterOpen]);
 
   // Category tabs: All, Weight loss, Peptides, Men's health, Hair loss
   const categories = [
@@ -77,6 +106,7 @@ export const ShopView: React.FC<ShopViewProps> = ({
       onSelectType('');
     }
     setIsFilterOpen(false);
+    filterBtnRef.current?.focus();
   };
 
   const handleClearFilterPanel = () => {
@@ -84,6 +114,7 @@ export const ShopView: React.FC<ShopViewProps> = ({
     onSelectType('');
     onClearFilters();
     setIsFilterOpen(false);
+    filterBtnRef.current?.focus();
   };
 
   // Filter calculation
@@ -195,9 +226,10 @@ export const ShopView: React.FC<ShopViewProps> = ({
       {/* Filter button next to sort dropdown in a single row */}
       <div className="flex items-center justify-between gap-4 py-2">
         <button
+          ref={filterBtnRef}
           type="button"
           onClick={() => setIsFilterOpen(true)}
-          className="btn-secondary h-10 px-4 flex items-center gap-2 text-[14px] font-medium cursor-pointer"
+          className="btn-secondary h-10 px-4 flex items-center gap-2 text-[14px] font-medium cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
         >
           <SlidersHorizontal size={16} strokeWidth={1.5} />
           <span>Filter</span>
@@ -278,82 +310,100 @@ export const ShopView: React.FC<ShopViewProps> = ({
         </div>
       )}
 
-      {/* FILTER PANEL / BOTTOM SHEET:
-          Mobile: slides up 350ms --ease-out.
-          Desktop: slides in from right 350ms --ease-out. */}
-      {isFilterOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-end" role="dialog" aria-modal="true">
-          {/* Overlay */}
+      {/* FILTER PANEL / BOTTOM SHEET: Rendered with createPortal into document.body.
+          Overlay z-[90] covering entire screen, Panel z-[100], tabIndex -1 */}
+      {isFilterOpen &&
+        createPortal(
           <div
-            className="fixed inset-0 bg-[#000000]/40 transition-opacity duration-[250ms] ease-[var(--ease-out)]"
-            onClick={() => setIsFilterOpen(false)}
-            aria-hidden="true"
-          />
+            role="dialog"
+            aria-modal="true"
+            aria-label="Filter products"
+            className="fixed inset-0 pointer-events-none"
+          >
+            {/* Overlay covering full screen including header */}
+            <div
+              className="fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity duration-[250ms] ease-[var(--ease-out)]"
+              onClick={() => {
+                setIsFilterOpen(false);
+                filterBtnRef.current?.focus();
+              }}
+              aria-hidden="true"
+            />
 
-          {/* Panel Container */}
-          <div className="relative w-full sm:max-w-md bg-[#FFFFFF] rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl sm:h-full max-h-[85vh] sm:max-h-full flex flex-col z-10 shadow-xl overflow-hidden animate-[pageEnter_350ms_var(--ease-out)_forwards] sm:animate-[searchBarIn_350ms_var(--ease-out)_forwards]">
-            {/* Header */}
-            <div className="px-6 py-5 border-b border-[#E6E6E6] flex items-center justify-between">
-              <h3 className="text-[20px] font-medium text-[#111111]">
-                Filter
-              </h3>
-              <button
-                onClick={() => setIsFilterOpen(false)}
-                className="w-10 h-10 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer"
-                aria-label="Close filters"
+            {/* Panel Container: z-[100] */}
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center sm:justify-end pointer-events-none">
+              <div
+                ref={filterPanelRef}
+                tabIndex={-1}
+                className="pointer-events-auto relative w-full sm:max-w-md bg-[#FFFFFF] rounded-t-2xl sm:rounded-t-none sm:rounded-l-2xl sm:h-full max-h-[85vh] sm:max-h-full flex flex-col shadow-2xl overflow-hidden outline-none animate-[pageEnter_350ms_var(--ease-out)_forwards]"
               >
-                <X size={20} strokeWidth={1.5} />
-              </button>
-            </div>
+                {/* Header */}
+                <div className="px-6 py-5 border-b border-[#E6E6E6] flex items-center justify-between">
+                  <h3 className="text-[20px] font-medium text-[#111111]">
+                    Filter
+                  </h3>
+                  <button
+                    onClick={() => {
+                      setIsFilterOpen(false);
+                      filterBtnRef.current?.focus();
+                    }}
+                    className="w-10 h-10 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
+                    aria-label="Close filters"
+                  >
+                    <X size={20} strokeWidth={1.5} />
+                  </button>
+                </div>
 
-            {/* Body: Form group */}
-            <div className="p-6 overflow-y-auto flex-1 space-y-6">
-              <div className="space-y-4">
-                <h4 className="text-[16px] font-medium text-[#111111]">
-                  Form
-                </h4>
-                <div className="space-y-3">
-                  {formOptions.map((form) => {
-                    const isChecked = selectedForms.includes(form);
-                    return (
-                      <label
-                        key={form}
-                        className="flex items-center gap-3 cursor-pointer text-[15px] text-[#111111] hover:text-[#666666] transition-colors duration-[150ms]"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={isChecked}
-                          onChange={() => handleToggleForm(form)}
-                          className="w-4 h-4 accent-[#111111] cursor-pointer"
-                        />
-                        <span>{form}</span>
-                      </label>
-                    );
-                  })}
+                {/* Body: Form group */}
+                <div className="p-6 overflow-y-auto flex-1 space-y-6">
+                  <div className="space-y-4">
+                    <h4 className="text-[16px] font-medium text-[#111111]">
+                      Form
+                    </h4>
+                    <div className="space-y-3">
+                      {formOptions.map((form) => {
+                        const isChecked = selectedForms.includes(form);
+                        return (
+                          <label
+                            key={form}
+                            className="flex items-center gap-3 cursor-pointer text-[15px] text-[#111111] hover:text-[#666666] transition-colors duration-[150ms]"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={isChecked}
+                              onChange={() => handleToggleForm(form)}
+                              className="w-4 h-4 accent-[#111111] cursor-pointer"
+                            />
+                            <span>{form}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Footer: Clear link and Apply button */}
+                <div className="p-6 border-t border-[#E6E6E6] bg-[#FFFFFF] flex items-center justify-between gap-4">
+                  <button
+                    type="button"
+                    onClick={handleClearFilterPanel}
+                    className="text-[14px] text-[#666666] hover:text-[#111111] underline underline-offset-4 transition-colors duration-[150ms] cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApplyFilter}
+                    className="btn-primary px-8 h-11 text-[13px] font-medium cursor-pointer"
+                  >
+                    Apply
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* Footer: Clear link and Apply button */}
-            <div className="p-6 border-t border-[#E6E6E6] bg-[#FFFFFF] flex items-center justify-between gap-4">
-              <button
-                type="button"
-                onClick={handleClearFilterPanel}
-                className="text-[14px] text-[#666666] hover:text-[#111111] underline underline-offset-4 transition-colors duration-[150ms] cursor-pointer"
-              >
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={handleApplyFilter}
-                className="btn-primary px-8 h-11 text-[13px] font-medium cursor-pointer"
-              >
-                Apply
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
     </div>
   );
 };
