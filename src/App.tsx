@@ -215,6 +215,8 @@ function MainApp() {
         onNavigate={navigate}
         onSearch={handleSearchSubmit}
         onOpenAuth={() => setIsAuthOpen(true)}
+        products={products}
+        onSelectProduct={handleSelectProduct}
       />
 
       {/* Main Content Area */}
