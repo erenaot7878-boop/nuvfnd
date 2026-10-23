@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Printer } from 'lucide-react';
 import { useCart } from '../context/CartContext';
 import { OrderDetails } from '../types';
@@ -86,16 +87,16 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, o
     }, 1000);
   };
 
-  return (
-    <div className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-6" role="dialog" aria-modal="true">
+  return createPortal(
+    <div className="fixed inset-0 pointer-events-none" role="dialog" aria-modal="true">
       <div
-        className="fixed inset-0 bg-[#000000]/40 transition-opacity"
+        className="fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity"
         onClick={() => step !== 4 && onClose()}
       />
 
-      <div className="relative bg-[#FFFFFF] max-w-2xl w-full border border-[#E6E6E6] z-10 flex flex-col my-8">
-        
-        {/* Header */}
+      <div className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-6 pointer-events-none">
+        <div className="relative bg-[#FFFFFF] max-w-2xl w-full border border-[#E6E6E6] shadow-2xl flex flex-col my-8 pointer-events-auto">
+          {/* Header */}
         <div className="px-8 h-16 border-b border-[#E6E6E6] flex items-center justify-between">
           <span className="text-[14px] text-[#111111] font-medium">
             {step === 4 ? 'Order registered' : 'Clinical intake and checkout'}
@@ -454,5 +455,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({ isOpen, onClose, o
         </div>
       </div>
     </div>
-  );
+  </div>,
+  document.body
+);
 };
