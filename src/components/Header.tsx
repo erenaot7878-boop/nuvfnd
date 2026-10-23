@@ -1,13 +1,16 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { Search, ShoppingBag, User, X, Menu } from 'lucide-react';
 import { useCart } from '../context/CartContext';
+import { Product } from '../types';
 
 interface HeaderProps {
   currentRoute: string;
   onNavigate: (route: string) => void;
   onSearch: (query: string) => void;
   onOpenAuth: () => void;
+  products?: Product[];
+  onSelectProduct?: (handle: string) => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -15,6 +18,8 @@ export const Header: React.FC<HeaderProps> = ({
   onNavigate,
   onSearch,
   onOpenAuth,
+  products = [],
+  onSelectProduct,
 }) => {
   const { cartCount, setIsCartOpen } = useCart();
   const [isSearchOpen, setIsSearchOpen] = useState(false);
@@ -27,7 +32,9 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Focus management refs
   const hamburgerBtnRef = useRef<HTMLButtonElement>(null);
-  const searchBtnRef = useRef<HTMLButtonElement>(null);
+  const desktopSearchBtnRef = useRef<HTMLButtonElement>(null);
+  const mobileSearchBtnRef = useRef<HTMLButtonElement>(null);
+  const searchTriggerRef = useRef<HTMLElement | null>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -131,7 +138,6 @@ export const Header: React.FC<HeaderProps> = ({
   }, [mobileMenuOpen]);
 
   // Scroll listener: >8px triggers border/shadow fade; mobile scroll hides/shows header
-  // While drawer is open, header does NOT hide on scroll
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -154,14 +160,32 @@ export const Header: React.FC<HeaderProps> = ({
   const searchContainerRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
 
+  // Open search and store the triggering element to restore focus later
+  const handleOpenSearch = (e: React.MouseEvent<HTMLButtonElement>) => {
+    searchTriggerRef.current = e.currentTarget;
+    setIsSearchOpen(true);
+  };
+
+  // Close search and restore focus to trigger
+  const handleCloseSearch = () => {
+    setIsSearchOpen(false);
+    setSearchVal('');
+    setTimeout(() => {
+      if (searchTriggerRef.current) {
+        searchTriggerRef.current.focus();
+      } else if (desktopSearchBtnRef.current) {
+        desktopSearchBtnRef.current.focus();
+      }
+    }, 10);
+  };
+
   // Close search on Esc or click outside
   useEffect(() => {
     if (!isSearchOpen) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        setIsSearchOpen(false);
-        searchBtnRef.current?.focus();
+        handleCloseSearch();
       }
     };
 
@@ -170,7 +194,7 @@ export const Header: React.FC<HeaderProps> = ({
         searchContainerRef.current &&
         !searchContainerRef.current.contains(e.target as Node)
       ) {
-        setIsSearchOpen(false);
+        handleCloseSearch();
       }
     };
 
@@ -192,9 +216,39 @@ export const Header: React.FC<HeaderProps> = ({
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchVal.trim()) {
-      onSearch(searchVal.trim());
-      setIsSearchOpen(false);
-      setSearchVal('');
+      const q = searchVal.trim();
+      handleCloseSearch();
+      onSearch(q);
+    }
+  };
+
+  // Live filtered matching medications
+  const matchingProducts = useMemo(() => {
+    if (!searchVal.trim() || !products || products.length === 0) return [];
+    const q = searchVal.trim().toLowerCase();
+    return products
+      .filter(
+        (p) =>
+          p.title.toLowerCase().includes(q) ||
+          p.description.toLowerCase().includes(q) ||
+          p.productType.toLowerCase().includes(q) ||
+          p.tags.some((t) => t.toLowerCase().includes(q))
+      )
+      .slice(0, 6);
+  }, [searchVal, products]);
+
+  // Suggestions dynamically derived from catalog product titles (no hardcoded strings)
+  const catalogSuggestions = useMemo(() => {
+    if (!products || products.length === 0) return [];
+    return products.slice(0, 5).map((p) => p.title);
+  }, [products]);
+
+  const handleSelectLiveResult = (handle: string) => {
+    handleCloseSearch();
+    if (onSelectProduct) {
+      onSelectProduct(handle);
+    } else {
+      onNavigate(`#/product/${encodeURIComponent(handle)}`);
     }
   };
 
@@ -272,8 +326,8 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2">
             {/* Search Icon */}
             <button
-              ref={searchBtnRef}
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              ref={desktopSearchBtnRef}
+              onClick={handleOpenSearch}
               className="w-11 h-11 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
               aria-label="Search"
             >
@@ -335,7 +389,8 @@ export const Header: React.FC<HeaderProps> = ({
           {/* Right: Search and Bag (44x44 tap areas) */}
           <div className="flex items-center">
             <button
-              onClick={() => setIsSearchOpen(!isSearchOpen)}
+              ref={mobileSearchBtnRef}
+              onClick={handleOpenSearch}
               className="w-11 h-11 flex items-center justify-center text-[#111111] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
               aria-label="Search"
             >
@@ -365,62 +420,156 @@ export const Header: React.FC<HeaderProps> = ({
       </header>
 
       {/* FULL-WIDTH SEARCH OVERLAY (Rendered via React Portal into document.body)
-          Covers the full screen including header: overlay z-[90], panel z-[100] */}
+          1. Portal wrapper has z-[100] to paint above the z-40 header.
+          2. Overlay has z-[90], covers full screen including header.
+          3. Panel has z-[100] at the very top of screen. */}
       {isSearchOpen &&
         createPortal(
           <div
             role="dialog"
             aria-modal="true"
             aria-label="Search"
-            className="fixed inset-0 pointer-events-none"
+            className="fixed inset-0 z-[100] pointer-events-none"
           >
             {/* Overlay covering full screen including header */}
             <div
               className="fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity duration-[250ms] ease-out"
-              onClick={() => setIsSearchOpen(false)}
+              onClick={handleCloseSearch}
               aria-hidden="true"
             />
 
-            {/* Search Bar Panel at top of screen */}
+            {/* Search Bar Panel at very top of screen */}
             <div
               ref={searchContainerRef}
-              className="fixed top-0 left-0 right-0 z-[100] pointer-events-auto border-b border-[#E6E6E6] bg-[#FFFFFF] py-4 px-6 sm:px-10 shadow-lg animate-fade-150"
+              className="fixed top-0 left-0 right-0 z-[100] pointer-events-auto border-b border-[#E6E6E6] bg-[#FFFFFF] py-4 px-4 sm:px-6 lg:px-10 shadow-xl animate-fade-150 max-h-[85vh] overflow-y-auto"
             >
-              <form
-                onSubmit={handleSearchSubmit}
-                className="max-w-[1280px] mx-auto flex items-center gap-4"
-              >
-                <Search size={20} strokeWidth={1.5} className="text-[#666666] shrink-0" />
-                <input
-                  ref={searchInputRef}
-                  type="search"
-                  value={searchVal}
-                  onChange={(e) => setSearchVal(e.target.value)}
-                  placeholder="Search products by name or compound…"
-                  className="flex-1 text-[15px] py-1.5 bg-transparent text-[#111111] placeholder-[#888888] outline-none"
-                />
-                <button
-                  type="submit"
-                  className="px-5 py-2 btn-primary text-[12px] font-medium cursor-pointer rounded-none"
+              <div className="max-w-[1280px] mx-auto">
+                <form
+                  onSubmit={handleSearchSubmit}
+                  className="flex items-center gap-3 sm:gap-4"
                 >
-                  Search
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsSearchOpen(false)}
-                  className="w-10 h-10 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer"
-                  aria-label="Close search"
-                >
-                  <X size={20} strokeWidth={1.5} />
-                </button>
-              </form>
+                  <Search size={20} strokeWidth={1.5} className="text-[#666666] shrink-0" />
+                  <input
+                    ref={searchInputRef}
+                    type="search"
+                    value={searchVal}
+                    onChange={(e) => setSearchVal(e.target.value)}
+                    placeholder="Search medications by name, form or condition…"
+                    className="flex-1 text-[16px] py-1.5 bg-transparent text-[#111111] placeholder-[#888888] outline-none"
+                  />
+                  <button
+                    type="submit"
+                    className="px-4 sm:px-5 py-2 btn-primary text-[12px] font-medium cursor-pointer rounded-none"
+                  >
+                    Search
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCloseSearch}
+                    className="w-10 h-10 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
+                    aria-label="Close search"
+                  >
+                    <X size={20} strokeWidth={1.5} />
+                  </button>
+                </form>
+
+                {/* Suggestions generated from catalog product titles when searchVal is empty */}
+                {searchVal.trim().length === 0 && catalogSuggestions.length > 0 && (
+                  <div className="pt-4 border-t border-[#E6E6E6] mt-4">
+                    <p className="text-[12px] text-[#777777] mb-2.5 font-normal">
+                      Suggested searches
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {catalogSuggestions.map((title) => (
+                        <button
+                          key={title}
+                          type="button"
+                          onClick={() => {
+                            setSearchVal(title);
+                            searchInputRef.current?.focus();
+                          }}
+                          className="px-3 py-1.5 bg-[#F5F5F5] hover:bg-[#EBEBEB] text-[#111111] text-[13px] rounded-full transition-colors cursor-pointer"
+                        >
+                          {title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Live search results when typing */}
+                {searchVal.trim().length > 0 && (
+                  <div className="pt-4 border-t border-[#E6E6E6] mt-4">
+                    <p className="text-[13px] font-normal text-[#666666] mb-3">
+                      Matching medications
+                    </p>
+
+                    {matchingProducts.length > 0 ? (
+                      <div className="divide-y divide-[#E6E6E6]">
+                        {matchingProducts.map((p) => {
+                          const img = p.images.edges[0]?.node?.url;
+                          const price = Number(p.priceRange.minVariantPrice.amount).toFixed(2);
+                          return (
+                            <div
+                              key={p.id}
+                              onClick={() => handleSelectLiveResult(p.handle)}
+                              className="py-3 flex items-center justify-between gap-4 cursor-pointer hover:bg-[#F9F9F9] -mx-2 px-2 rounded-[4px] transition-colors"
+                            >
+                              <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-[44px] h-[44px] shrink-0 bg-[#F5F5F5] rounded-[6px] p-1 flex items-center justify-center overflow-hidden">
+                                  {img ? (
+                                    <img
+                                      src={img}
+                                      alt={p.title}
+                                      className="w-full h-full object-contain mix-blend-multiply"
+                                    />
+                                  ) : (
+                                    <span className="text-[11px] text-[#777777]">Rx</span>
+                                  )}
+                                </div>
+                                <div className="min-w-0">
+                                  <p className="text-[15px] font-medium text-[#111111] truncate">
+                                    {p.title}
+                                  </p>
+                                  <p className="text-[12px] text-[#666666] truncate">
+                                    {p.productType}
+                                  </p>
+                                </div>
+                              </div>
+                              <div className="text-[14px] font-medium text-[#111111] shrink-0 tabular-nums">
+                                ${price}
+                              </div>
+                            </div>
+                          );
+                        })}
+
+                        <div className="pt-3">
+                          <button
+                            type="button"
+                            onClick={handleSearchSubmit}
+                            className="text-[13px] text-[#111111] underline hover:text-[#666666] cursor-pointer"
+                          >
+                            View all results for &ldquo;{searchVal.trim()}&rdquo; &rarr;
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="py-6 text-center text-[14px] text-[#666666]">
+                        No medications found matching &ldquo;{searchVal.trim()}&rdquo;
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>,
           document.body
         )}
 
       {/* MOBILE DRAWER & OVERLAY (Rendered via React Portal into document.body)
-          Overlay z-[90], Drawer panel z-[100], h-[100dvh], tabIndex -1 */}
+          1. Portal wrapper has z-[100] to paint above the z-40 header.
+          2. Overlay z-[90], Drawer panel z-[100], h-[100dvh], tabIndex -1.
+          3. No duplicate search form inside the mobile drawer. */}
       {isMenuMounted &&
         createPortal(
           <div
@@ -428,7 +577,7 @@ export const Header: React.FC<HeaderProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
-            className="lg:hidden fixed inset-0 pointer-events-none"
+            className="lg:hidden fixed inset-0 z-[100] pointer-events-none"
           >
             {/* Overlay: z-[90], covers the whole screen */}
             <div
@@ -463,7 +612,7 @@ export const Header: React.FC<HeaderProps> = ({
                 </button>
               </div>
 
-              {/* 2. Links: Shop, Providers, Contact as 56px rows, 18px weight 500, with a hairline between rows */}
+              {/* 2. Links: Shop, Providers, Contact as 56px rows, 18px weight 500, with a hairline between rows (No search form) */}
               <nav className="divide-y divide-[#E6E6E6] shrink-0 bg-[#FFFFFF]" aria-label="Mobile Navigation">
                 {navLinks.map((link) => (
                   <button
