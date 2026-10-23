@@ -1,0 +1,6 @@
+{
+  "name": "Nuvmed — Health & Wellness Store",
+  "description": "Modern, physician-led telehealth for weight loss, men's health, peptide therapy and everyday primary care, delivered to your door.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
