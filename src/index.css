@@ -5,13 +5,6 @@
   --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
   --d-fast: 150ms;
   --d-base: 250ms;
-  --d-slow: 450ms;@import "tailwindcss";
-
-:root {
-  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
-  --d-fast: 150ms;
-  --d-base: 250ms;
   --d-slow: 450ms;
 }
 
@@ -204,254 +197,42 @@
   animation: errorSlideDown 200ms var(--ease-out) forwards;
 }
 
-/* Toast animation: slide up 12px and fade in over 250ms */
-@keyframes toastEnter {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 12px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-.animate-toast-enter {
-  animation: toastEnter var(--d-base) var(--ease-out) forwards;
-}
-
 /* ==========================================================================
-   ACCESSIBILITY: PREFERS-REDUCED-MOTION
+   ADDED TO BAG TOAST NOTIFICATION
+   Enter: opacity 0 to 1, translate 12px to 0 (top on desktop, bottom on mobile) over 300ms cubic-bezier(0.22, 1, 0.36, 1)
+   Exit: opacity 1 to 0, move 8px back over 200ms cubic-bezier(0.65, 0, 0.35, 1)
    ========================================================================== */
-@media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 100ms !important;
-    scroll-behavior: auto !important;
-  }
-  .reveal-block {
-    opacity: 1 !important;
-    transform: none !important;
-    transition: none !important;
-  }
-  .hero-panel-fade,
-  .hero-stagger-1,
-  .hero-stagger-2,
-  .hero-stagger-3,
-  .hero-stagger-4 {
-    opacity: 1 !important;
-    transform: none !important;
-    animation: none !important;
-  }
-  #mobile-menu-drawer div {
-    transform: none !important;
-  }
+.toast-anim-base {
+  transition-property: opacity, transform;
 }
 
-}
-
-@layer base {
-  html, body, #root {
-    width: 100%;
-    min-height: 100%;
-    margin: 0;
-    padding: 0;
-    overflow-x: hidden;
-  }
-  html {
-    scroll-behavior: auto; /* Route navigation scroll to top must not be animated */
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
-  body {
-    font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    background-color: #ffffff;
-    color: #111111;
-  }
-}
-
-.font-price {
-  font-family: 'Barlow Condensed', sans-serif;
-  letter-spacing: 0.02em;
-}
-
-/* ==========================================================================
-   MOTION SYSTEM (Subtle, 60fps, Opacity & Transform only)
-   ========================================================================== */
-
-/* Page and Route Transitions: Opacity 0 -> 1 over 250ms (no translate or scale) */
-@keyframes pageEnter {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-.animate-page-enter {
-  animation: pageEnter var(--d-base) var(--ease-out) forwards;
-}
-
-/* Scroll Reveals: Opacity 0 -> 1 over 450ms (no translate, transform, or will-change) */
-.reveal-block {
+.toast-anim-enter {
   opacity: 0;
-  transition: opacity var(--d-slow) var(--ease-out);
+  transform: translateY(12px);
 }
-.reveal-block.is-revealed {
+@media (min-width: 1024px) {
+  .toast-anim-enter {
+    transform: translateY(-12px);
+  }
+}
+
+.toast-anim-visible {
   opacity: 1;
+  transform: translateY(0);
+  transition-duration: 300ms;
+  transition-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-/* Hero reveal staggered (opacity only) */
-@keyframes heroFadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+.toast-anim-exit {
+  opacity: 0;
+  transform: translateY(8px);
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
 }
-@keyframes heroMoveIn {
-  from {
-    opacity: 0;
+@media (min-width: 1024px) {
+  .toast-anim-exit {
+    transform: translateY(-8px);
   }
-  to {
-    opacity: 1;
-  }
-}
-.hero-panel-fade {
-  animation: heroFadeIn var(--d-slow) var(--ease-out) forwards;
-}
-.hero-stagger-1 {
-  animation: heroMoveIn var(--d-slow) var(--ease-out) 0ms forwards;
-}
-.hero-stagger-2 {
-  animation: heroMoveIn var(--d-slow) var(--ease-out) 80ms forwards;
-}
-.hero-stagger-3 {
-  animation: heroMoveIn var(--d-slow) var(--ease-out) 160ms forwards;
-}
-.hero-stagger-4 {
-  animation: heroMoveIn var(--d-slow) var(--ease-out) 240ms forwards;
-}
-
-/* Product Card Grid Stagger (capped at 4 cards) */
-.stagger-0 { transition-delay: 0ms; }
-.stagger-1 { transition-delay: 50ms; }
-.stagger-2 { transition-delay: 100ms; }
-.stagger-3 { transition-delay: 150ms; }
-
-/* Cart count badge scale bump: 1 -> 1.15 -> 1 over 250ms */
-@keyframes badgeBump {
-  0% { transform: scale(1); }
-  50% { transform: scale(1.15); }
-  100% { transform: scale(1); }
-}
-.animate-badge-bump {
-  animation: badgeBump var(--d-base) var(--ease-out);
-}
-
-/* Button & Link Motion Tokens */
-.btn-primary {
-  background-color: #111111;
-  color: #ffffff;
-  transition: background-color var(--d-fast) var(--ease-out), transform 100ms var(--ease-out);
-}
-.btn-primary:hover {
-  background-color: #2a2a2a;
-}
-.btn-primary:active {
-  transform: scale(0.98);
-}
-
-.btn-secondary {
-  border: 1px solid #111111;
-  color: #111111;
-  background-color: transparent;
-  transition: background-color var(--d-fast) var(--ease-out), color var(--d-fast) var(--ease-out), transform 100ms var(--ease-out);
-}
-.btn-secondary:hover {
-  background-color: #111111;
-  color: #ffffff;
-}
-.btn-secondary:active {
-  transform: scale(0.98);
-}
-
-/* Arrow move 3px right on hover over 200ms */
-.link-arrow {
-  display: inline-flex;
-  align-items: center;
-}
-.link-arrow .arrow-icon {
-  transition: transform 200ms var(--ease-out);
-}
-.link-arrow:hover .arrow-icon {
-  transform: translateX(3px);
-}
-
-/* Cross-fades */
-@keyframes fadeIn150 {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-@keyframes fadeIn250 {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-.animate-fade-150 {
-  animation: fadeIn150 var(--d-fast) var(--ease-out) forwards;
-}
-.animate-fade-250 {
-  animation: fadeIn250 var(--d-base) var(--ease-out) forwards;
-}
-
-/* Soft skeleton pulse: 0.6 to 1 over 1.4s */
-@keyframes softPulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.6; }
-}
-.animate-soft-pulse {
-  animation: softPulse 1.4s ease-in-out infinite;
-}
-
-/* Form spinner: 16px, 1.5px border, 700ms linear rotation */
-@keyframes spin700 {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-.form-spinner {
-  width: 16px;
-  height: 16px;
-  border: 1.5px solid currentColor;
-  border-top-color: transparent;
-  border-radius: 50%;
-  animation: spin700 700ms linear infinite;
-}
-
-/* Inline form error animation: fade in and move down 4px over 200ms */
-@keyframes errorSlideDown {
-  from {
-    opacity: 0;
-    transform: translateY(-4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-.animate-error-enter {
-  animation: errorSlideDown 200ms var(--ease-out) forwards;
-}
-
-/* Toast animation: slide up 12px and fade in over 250ms */
-@keyframes toastEnter {
-  from {
-    opacity: 0;
-    transform: translate(-50%, 12px);
-  }
-  to {
-    opacity: 1;
-    transform: translate(-50%, 0);
-  }
-}
-.animate-toast-enter {
-  animation: toastEnter var(--d-base) var(--ease-out) forwards;
 }
 
 /* ==========================================================================
@@ -480,5 +261,12 @@
   }
   #mobile-menu-drawer div {
     transform: none !important;
+  }
+  .toast-anim-base,
+  .toast-anim-enter,
+  .toast-anim-visible,
+  .toast-anim-exit {
+    transform: none !important;
+    transition: opacity 150ms ease !important;
   }
 }
