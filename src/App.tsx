@@ -306,6 +306,7 @@ function MainApp() {
           navigate('#/checkout');
         }}
         onNavigateProduct={handleSelectProduct}
+        onNavigateShop={() => navigate('#/shop')}
         products={products}
       />
 
