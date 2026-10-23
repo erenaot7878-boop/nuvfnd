@@ -67,7 +67,8 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
         imageUrl: primaryImage,
         productType: product.productType,
       },
-      qty
+      qty,
+      { suppressToast: true }
     );
 
     // Open cart drawer immediately
@@ -292,7 +293,10 @@ export const ProductDetailView: React.FC<ProductDetailViewProps> = ({
       )}
 
       {/* MOBILE STICKY BOTTOM BAR (md:hidden) */}
-      <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF] border-t border-[#E6E6E6] p-4 flex items-center justify-between md:hidden shadow-sm">
+      <div
+        data-sticky-add-bar="true"
+        className="fixed bottom-0 left-0 right-0 z-30 bg-[#FFFFFF] border-t border-[#E6E6E6] p-4 flex items-center justify-between md:hidden shadow-sm"
+      >
         <div>
           <div className="text-[18px] font-medium text-[#111111] tabular-nums">
             ${currentPrice}
