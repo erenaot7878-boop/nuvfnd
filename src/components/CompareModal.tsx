@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { X, Trash2, ShoppingBag } from 'lucide-react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
@@ -22,18 +23,19 @@ export const CompareModal: React.FC<CompareModalProps> = ({
 
   const compareProducts = products.filter((p) => compareList.includes(p.handle));
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 pointer-events-none"
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="fixed inset-0 bg-[#000000]/40 transition-opacity"
+        className="fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity"
         onClick={onClose}
       />
 
-      <div className="relative bg-[#FFFFFF] max-w-4xl w-full border border-[#E6E6E6] z-10 flex flex-col my-8">
+      <div className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div className="pointer-events-auto relative bg-[#FFFFFF] max-w-4xl w-full border border-[#E6E6E6] shadow-2xl flex flex-col my-8">
         <div className="px-8 h-16 border-b border-[#E6E6E6] flex items-center justify-between">
           <span className="text-[14px] font-medium text-[#111111]">
             Compare formulations ({compareProducts.length}/3)
@@ -130,7 +132,9 @@ export const CompareModal: React.FC<CompareModalProps> = ({
             })}
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
