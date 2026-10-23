@@ -1,9 +1,20 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { CartItem, OrderDetails } from '../types';
 
+export interface AddedToBagItem {
+  productTitle: string;
+  imageUrl?: string;
+  productHandle?: string;
+  timestamp: number;
+}
+
 interface CartContextType {
   cart: CartItem[];
-  addToCart: (item: Omit<CartItem, 'qty'>, qty?: number) => void;
+  addToCart: (
+    item: Omit<CartItem, 'qty'>,
+    qty?: number,
+    options?: { suppressToast?: boolean }
+  ) => void;
   updateQty: (variantId: string, qty: number) => void;
   removeFromCart: (variantId: string) => void;
   clearCart: () => void;
@@ -20,6 +31,8 @@ interface CartContextType {
   clearCompare: () => void;
   toastMessage: string | null;
   showToast: (message: string) => void;
+  addedToBagItem: AddedToBagItem | null;
+  dismissAddedToast: () => void;
   recentOrder: OrderDetails | null;
   setRecentOrder: (order: OrderDetails | null) => void;
 }
@@ -56,6 +69,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [addedToBagItem, setAddedToBagItem] = useState<AddedToBagItem | null>(null);
   const [recentOrder, setRecentOrder] = useState<OrderDetails | null>(() => {
     try {
       const saved = localStorage.getItem('nuvmed_recent_order');
@@ -64,6 +78,14 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       return null;
     }
   });
+
+  // Dismiss toast immediately when the cart drawer opens
+  useEffect(() => {
+    if (isCartOpen) {
+      setAddedToBagItem(null);
+      setToastMessage(null);
+    }
+  }, [isCartOpen]);
 
   useEffect(() => {
     try {
@@ -100,13 +122,22 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [recentOrder]);
 
   const showToast = (message: string) => {
+    setAddedToBagItem(null);
     setToastMessage(message);
     setTimeout(() => {
       setToastMessage(prev => (prev === message ? null : prev));
     }, 2800);
   };
 
-  const addToCart = (item: Omit<CartItem, 'qty'>, qty: number = 1) => {
+  const dismissAddedToast = () => {
+    setAddedToBagItem(null);
+  };
+
+  const addToCart = (
+    item: Omit<CartItem, 'qty'>,
+    qty: number = 1,
+    options?: { suppressToast?: boolean }
+  ) => {
     setCart(prev => {
       const existing = prev.find(line => line.variantId === item.variantId);
       if (existing) {
@@ -118,7 +149,16 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
       return [...prev, { ...item, qty }];
     });
-    showToast(`Added to cart: ${item.productTitle}`);
+
+    if (!options?.suppressToast) {
+      setToastMessage(null);
+      setAddedToBagItem({
+        productTitle: item.productTitle,
+        imageUrl: item.imageUrl,
+        productHandle: item.productHandle,
+        timestamp: Date.now(),
+      });
+    }
   };
 
   const updateQty = (variantId: string, qty: number) => {
@@ -163,7 +203,7 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return prev.filter(h => h !== handle);
       } else {
         if (prev.length >= 3) {
-          showToast('Comparison limit is 3 items');
+          showToast('You can compare up to 3 formulations.');
           return prev;
         }
         showToast('Added to comparison');
@@ -173,10 +213,18 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const isInCompare = (handle: string) => compareList.includes(handle);
-  const clearCompare = () => setCompareList([]);
+
+  const clearCompare = () => {
+    setCompareList([]);
+    showToast('Cleared comparison list');
+  };
+
+  const cartTotal = cart.reduce(
+    (sum, item) => sum + Number(item.price) * item.qty,
+    0
+  );
 
   const cartCount = cart.reduce((sum, item) => sum + item.qty, 0);
-  const cartTotal = cart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
 
   return (
     <CartContext.Provider
@@ -199,6 +247,8 @@ export const CartProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearCompare,
         toastMessage,
         showToast,
+        addedToBagItem,
+        dismissAddedToast,
         recentOrder,
         setRecentOrder,
       }}
