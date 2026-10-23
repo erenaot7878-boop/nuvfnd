@@ -37,34 +37,29 @@
    MOTION SYSTEM (Subtle, 60fps, Opacity & Transform only)
    ========================================================================== */
 
-/* Page and Route Transitions: Opacity 0 -> 1, translateY 8px -> 0 over 250ms */
+/* Page and Route Transitions: Opacity 0 -> 1 over 250ms (no translate or scale) */
 @keyframes pageEnter {
   from {
     opacity: 0;
-    transform: translateY(8px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 .animate-page-enter {
   animation: pageEnter var(--d-base) var(--ease-out) forwards;
 }
 
-/* Scroll Reveals: Opacity 0 -> 1, translateY 16px -> 0 over 450ms */
+/* Scroll Reveals: Opacity 0 -> 1 over 450ms (no translate, transform, or will-change) */
 .reveal-block {
   opacity: 0;
-  transform: translateY(16px);
-  transition: opacity var(--d-slow) var(--ease-out), transform var(--d-slow) var(--ease-out);
-  will-change: opacity, transform;
+  transition: opacity var(--d-slow) var(--ease-out);
 }
 .reveal-block.is-revealed {
   opacity: 1;
-  transform: translateY(0);
 }
 
-/* Hero reveal staggered */
+/* Hero reveal staggered (opacity only) */
 @keyframes heroFadeIn {
   from { opacity: 0; }
   to { opacity: 1; }
@@ -72,11 +67,9 @@
 @keyframes heroMoveIn {
   from {
     opacity: 0;
-    transform: translateY(12px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
   }
 }
 .hero-panel-fade {
