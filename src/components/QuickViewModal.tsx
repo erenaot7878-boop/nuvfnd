@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Check } from 'lucide-react';
 import { Product } from '../types';
 import { useCart } from '../context/CartContext';
@@ -50,18 +51,19 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
     }, 400);
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 overflow-y-auto flex items-center justify-center p-4 sm:p-6"
+      className="fixed inset-0 pointer-events-none"
       role="dialog"
       aria-modal="true"
     >
       <div
-        className="fixed inset-0 bg-[#000000]/40 transition-opacity"
+        className="fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity"
         onClick={onClose}
       />
 
-      <div className="relative bg-[#FFFFFF] max-w-2xl w-full border border-[#E6E6E6] z-10 grid grid-cols-1 md:grid-cols-2">
+      <div className="fixed inset-0 z-[100] overflow-y-auto flex items-center justify-center p-4 sm:p-6 pointer-events-none">
+        <div className="pointer-events-auto relative bg-[#FFFFFF] max-w-2xl w-full border border-[#E6E6E6] shadow-2xl grid grid-cols-1 md:grid-cols-2">
         <button
           onClick={onClose}
           className="absolute top-4 right-4 z-20 w-8 h-8 flex items-center justify-center text-[#111111] hover:text-[#888888] cursor-pointer"
@@ -178,7 +180,9 @@ export const QuickViewModal: React.FC<QuickViewModalProps> = ({
             </button>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 };
