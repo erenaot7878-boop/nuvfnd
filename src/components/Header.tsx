@@ -27,8 +27,9 @@ export const Header: React.FC<HeaderProps> = ({
 
   // Focus management refs
   const hamburgerBtnRef = useRef<HTMLButtonElement>(null);
-  const closeBtnRef = useRef<HTMLButtonElement>(null);
+  const searchBtnRef = useRef<HTMLButtonElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const menuTriggerRef = useRef<HTMLElement | null>(null);
 
   // Scroll states for sticky header border/shadow and mobile hide/show
   const [isScrolled, setIsScrolled] = useState(false);
@@ -52,16 +53,21 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout>;
     if (mobileMenuOpen) {
+      menuTriggerRef.current = document.activeElement as HTMLElement;
       setIsMenuMounted(true);
       timer = setTimeout(() => {
         setIsMenuVisible(true);
-        closeBtnRef.current?.focus();
+        drawerRef.current?.focus();
       }, 16);
     } else {
       setIsMenuVisible(false);
       timer = setTimeout(() => {
         setIsMenuMounted(false);
-        hamburgerBtnRef.current?.focus();
+        if (menuTriggerRef.current) {
+          menuTriggerRef.current.focus();
+        } else {
+          hamburgerBtnRef.current?.focus();
+        }
       }, 250);
     }
     return () => clearTimeout(timer);
@@ -125,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
   }, [mobileMenuOpen]);
 
   // Scroll listener: >8px triggers border/shadow fade; mobile scroll hides/shows header
-  // Note: While drawer is open, header does NOT hide on scroll
+  // While drawer is open, header does NOT hide on scroll
   useEffect(() => {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
@@ -155,6 +161,7 @@ export const Header: React.FC<HeaderProps> = ({
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         setIsSearchOpen(false);
+        searchBtnRef.current?.focus();
       }
     };
 
@@ -199,11 +206,12 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <>
+      {/* Header: z-40. Idle state has NO transform, will-change, or filter */}
       <header
-        className={`sticky top-0 z-40 bg-[#FFFFFF] transition-transform duration-[250ms] ease-[var(--ease-in-out)] ${
+        className={`sticky top-0 z-[40] bg-[#FFFFFF] ${
           mobileHeaderVisible
-            ? 'translate-y-0'
-            : '-translate-y-full lg:translate-y-0'
+            ? ''
+            : '-translate-y-full transition-transform duration-[250ms] ease-[var(--ease-in-out)] lg:translate-y-0'
         }`}
       >
         {/* 1px bottom border and subtle shadow fading in only after user scrolls past 8px */}
@@ -264,6 +272,7 @@ export const Header: React.FC<HeaderProps> = ({
           <div className="flex items-center gap-2">
             {/* Search Icon */}
             <button
+              ref={searchBtnRef}
               onClick={() => setIsSearchOpen(!isSearchOpen)}
               className="w-11 h-11 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111]"
               aria-label="Search"
@@ -353,47 +362,65 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           </div>
         </div>
-
-        {/* FULL-WIDTH SEARCH BAR (Expands in by fading and sliding down 8px over 250ms) */}
-        {isSearchOpen && (
-          <div
-            ref={searchContainerRef}
-            className="border-t border-[#E6E6E6] bg-[#FFFFFF] py-3 px-6 sm:px-10 animate-[pageEnter_250ms_var(--ease-out)_forwards]"
-          >
-            <form
-              onSubmit={handleSearchSubmit}
-              className="max-w-[1280px] mx-auto flex items-center gap-4"
-            >
-              <Search size={20} strokeWidth={1.5} className="text-[#666666] shrink-0" />
-              <input
-                ref={searchInputRef}
-                type="search"
-                value={searchVal}
-                onChange={(e) => setSearchVal(e.target.value)}
-                placeholder="Search products by name or compound…"
-                className="flex-1 text-[15px] py-1 bg-transparent text-[#111111] placeholder-[#888888] outline-none"
-              />
-              <button
-                type="submit"
-                className="px-4 py-1.5 btn-primary text-[12px] font-medium cursor-pointer"
-              >
-                Search
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsSearchOpen(false)}
-                className="w-9 h-9 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer"
-                aria-label="Close search"
-              >
-                <X size={20} strokeWidth={1.5} />
-              </button>
-            </form>
-          </div>
-        )}
       </header>
 
+      {/* FULL-WIDTH SEARCH OVERLAY (Rendered via React Portal into document.body)
+          Covers the full screen including header: overlay z-[90], panel z-[100] */}
+      {isSearchOpen &&
+        createPortal(
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label="Search"
+            className="fixed inset-0 pointer-events-none"
+          >
+            {/* Overlay covering full screen including header */}
+            <div
+              className="fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity duration-[250ms] ease-out"
+              onClick={() => setIsSearchOpen(false)}
+              aria-hidden="true"
+            />
+
+            {/* Search Bar Panel at top of screen */}
+            <div
+              ref={searchContainerRef}
+              className="fixed top-0 left-0 right-0 z-[100] pointer-events-auto border-b border-[#E6E6E6] bg-[#FFFFFF] py-4 px-6 sm:px-10 shadow-lg animate-fade-150"
+            >
+              <form
+                onSubmit={handleSearchSubmit}
+                className="max-w-[1280px] mx-auto flex items-center gap-4"
+              >
+                <Search size={20} strokeWidth={1.5} className="text-[#666666] shrink-0" />
+                <input
+                  ref={searchInputRef}
+                  type="search"
+                  value={searchVal}
+                  onChange={(e) => setSearchVal(e.target.value)}
+                  placeholder="Search products by name or compound…"
+                  className="flex-1 text-[15px] py-1.5 bg-transparent text-[#111111] placeholder-[#888888] outline-none"
+                />
+                <button
+                  type="submit"
+                  className="px-5 py-2 btn-primary text-[12px] font-medium cursor-pointer rounded-none"
+                >
+                  Search
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsSearchOpen(false)}
+                  className="w-10 h-10 flex items-center justify-center text-[#111111] hover:text-[#666666] transition-colors duration-[150ms] cursor-pointer"
+                  aria-label="Close search"
+                >
+                  <X size={20} strokeWidth={1.5} />
+                </button>
+              </form>
+            </div>
+          </div>,
+          document.body
+        )}
+
       {/* MOBILE DRAWER & OVERLAY (Rendered via React Portal into document.body)
-          This ensures position: fixed is relative to the screen, NOT the transformed header */}
+          Overlay z-[90], Drawer panel z-[100], h-[100dvh], tabIndex -1 */}
       {isMenuMounted &&
         createPortal(
           <div
@@ -401,21 +428,22 @@ export const Header: React.FC<HeaderProps> = ({
             role="dialog"
             aria-modal="true"
             aria-label="Navigation menu"
-            className="lg:hidden"
+            className="lg:hidden fixed inset-0 pointer-events-none"
           >
-            {/* Overlay: position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 50; covers the whole screen */}
+            {/* Overlay: z-[90], covers the whole screen */}
             <div
-              className={`fixed inset-0 bg-[#000000]/40 z-50 transition-opacity duration-[250ms] ${
+              className={`fixed inset-0 bg-[#000000]/40 z-[90] pointer-events-auto transition-opacity duration-[250ms] ${
                 isMenuVisible ? 'opacity-100 ease-out' : 'opacity-0 ease-in-out'
               }`}
               onClick={() => setMobileMenuOpen(false)}
               aria-hidden="true"
             />
 
-            {/* Drawer: position: fixed; top: 0; left: 0; bottom: 0; width: 85vw; max-width: 360px; height: 100dvh; background: #FFFFFF; z-index: 60 */}
+            {/* Drawer: z-[100], h-[100dvh], tabIndex -1, solid white */}
             <div
               ref={drawerRef}
-              className={`fixed top-0 left-0 bottom-0 w-[85vw] max-w-[360px] h-[100dvh] bg-[#FFFFFF] z-60 overflow-y-auto flex flex-col shadow-2xl transition-transform ${
+              tabIndex={-1}
+              className={`fixed top-0 left-0 bottom-0 w-[85vw] max-w-[360px] h-[100dvh] bg-[#FFFFFF] z-[100] pointer-events-auto overflow-y-auto flex flex-col shadow-2xl outline-none transition-transform ${
                 isMenuVisible
                   ? 'translate-x-0 duration-[300ms] ease-out'
                   : '-translate-x-full duration-[250ms] ease-in-out'
@@ -427,7 +455,6 @@ export const Header: React.FC<HeaderProps> = ({
                   NUVMED
                 </span>
                 <button
-                  ref={closeBtnRef}
                   onClick={() => setMobileMenuOpen(false)}
                   className="w-11 h-11 flex items-center justify-center text-[#111111] cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-[#111111] -mr-2"
                   aria-label="Close menu"
